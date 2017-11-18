@@ -1,6 +1,6 @@
 
 
-# Spotify-Slack-Bot
+# Botify, the Spotify Slackbot
 
 *Bring life to your office with a collaborative playlist controlled via Slack!*
 
@@ -47,6 +47,7 @@ python spotify.py
 
 ## TO-DOs:
 
+* See which user added a song
 * Search for songs and add to the collaborative playlist.
 * Add a song to the queue.
 * Package this nicely for a friendlier installation and usage.

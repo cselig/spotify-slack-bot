@@ -7,7 +7,8 @@ import json
 
 
 class SpotifySlackBot():
-    def __init__(self, api_key, broadcast_channel, skips_needed=2):
+    
+    def __init__(self, api_key, broadcast_channel, skips_needed=3):
         self.broadcast_channel = broadcast_channel
         self.sc = SlackClient(api_key)
 
@@ -22,6 +23,7 @@ class SpotifySlackBot():
         self.skips = set()  
         self.skips_needed = skips_needed
 
+
     # create a dict to map user id to first name
     def make_id_to_fn(self):
         for user in self.users:
@@ -29,23 +31,27 @@ class SpotifySlackBot():
             name = user['profile']['real_name_normalized'].split()[0]
             self.id_to_fn[id_] = name
 
+
     def command_current_song(self, event):
         data = self.run_spotify_script('current-song')
         data = data.strip().split('\n')
         data = {"id": data[0], "name": data[1], "artist": data[2]}
-        message = "The current song is *%s* by *%s*." % (data['name'], data['artist'])
+        message = "Now playing *%s* by *%s*." % (data['name'], data['artist'])
         
         self.sc.rtm_send_message(event['channel'], message)
         
+
     def command_playback_play(self, event):
         self.run_spotify_script('playback-play')
         self.sc.rtm_send_message(self.broadcast_channel, "*Resumed playback*, as requested by %s." % (self.get_username(event['user'])))
         self.sc.rtm_send_message(event['channel'], "Sure, let the music play!")
 
+
     def command_playback_pause(self, event):
         self.run_spotify_script('playback-pause')
         self.sc.rtm_send_message(self.broadcast_channel, "*Paused playback*, as requested by %s." % (self.get_username(event['user'])))
         self.sc.rtm_send_message(event['channel'], "Alright, let's have some silence for now.")
+
 
     def command_playback_skip(self, event):
         # don't allow bots to vote
@@ -63,7 +69,7 @@ class SpotifySlackBot():
                 self.sc.rtm_send_message(self.broadcast_channel, '%s out of %s votes needed to skip' % (len(self.skips), self.skips_needed))
         else:
             self.sc.rtm_send_message(self.broadcast_channel, 'You already voted *%s*! :rage:' % self.id_to_fn[event['user']])
-        # self.sc.rtm_send_message(event['channel'], "Sure, let's listen to something else...")
+
 
     def command_help(self, event):
         self.sc.rtm_send_message(event['channel'],
@@ -79,11 +85,14 @@ class SpotifySlackBot():
                                  # "*Please note:* When you give commands to control the playlist, *I'll advertise on #spotify-playlist that you asked me to do it*, just so everyone knows what is going on. Please use these only if you really need to :)"
         )
 
+
     def command_unknown(self, event):
         self.sc.rtm_send_message(event['channel'], "Hey there! I kinda didn't get what you mean, sorry. If you need, just say `help` and I can tell you how I can be of use. ;)")
 
+
     def run_spotify_script(self, *args):
         return check_output(['./spotify.applescript'] + list(args))
+
 
     # not used, might reimplement
     def get_username(self, id):
@@ -92,11 +101,20 @@ class SpotifySlackBot():
                 return '@%s' % user['name']
         return 'someone'
 
+
+    # need to refactor this, I think this is repeated code
     def get_curr_song_info(self):
         data = self.run_spotify_script('current-song')
         data = data.strip().split('\n')
         return {"id": data[0], "name": data[1], "artist": data[2]}
 
+
+    # code that will run when a new song starts
+    # note: order matters!
+    def new_song(self):
+        self.skips = set()
+        self.command_current_song({'channel': self.broadcast_channel})
+        
     
     def run(self):
         commands = [
@@ -111,13 +129,15 @@ class SpotifySlackBot():
         curr_song = ''
         if self.sc.rtm_connect():
             self.sc.rtm_send_message(self.broadcast_channel, '*Botify is now online!*')
+            # main loop
             while True:
+                # might want to move prev_song + curr_song to instance variables?
                 prev_song = curr_song
                 curr_song = self.get_curr_song_info()['id']
                 # check if a new song has started
                 # if so, reset
                 if prev_song != curr_song:
-                    self.skips = set()
+                    self.new_song()
                 events = self.sc.rtm_read()
                 for event in events:
                     # only respond to mentions
