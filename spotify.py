@@ -87,7 +87,7 @@ class SpotifySlackBot():
 
 
     def command_unknown(self, event):
-        self.sc.rtm_send_message(event['channel'], "Hey there! I kinda didn't get what you mean, sorry. If you need, just say `help` and I can tell you how I can be of use. ;)")
+        self.sc.rtm_send_message(event['channel'], "I didn't understand you there. If you need, just say `help` and I can tell you how I can be of use")
 
 
     def run_spotify_script(self, *args):
