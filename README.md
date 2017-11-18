@@ -1,3 +1,7 @@
+## Troubleshooting
+* If bot keeps failing silently, check if rtm_connect() is returning false. If so, you probably need to change your version of `websocket-client` to `0.35`.
+* Make sure bot is invited to channel and channel is not private
+
 # Spotify-Slack-Bot
 
 *Bring life to your office with a collaborative playlist controlled via Slack!*
