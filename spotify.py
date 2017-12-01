@@ -4,16 +4,29 @@ import os
 import re
 import time
 import json
+import spotipy
+import spotipy.util as util
 
 
 class SpotifySlackBot():
     
     def __init__(self, api_key, broadcast_channel, skips_needed=3):
         self.broadcast_channel = broadcast_channel
-        self.sc = SlackClient(api_key)
+        self.slack = SlackClient(api_key)
+
+        # set up spotipy
+        scope = 'user-library-modify'
+        username = os.environ['SPOTIFY_USERNAME']
+        token = util.prompt_for_user_token(username, scope)
+        if token:
+            self.spotify = spotipy.Spotify(auth=token)
+            print 'Successfully verified'
+        else: 
+            print "Can't get token for ", username
+            # probably want to quit out here?
 
         # Get the user list
-        response = self.sc.api_call('users.list')
+        response = self.slack.api_call('users.list')
         self.users = json.loads(response)['members']
         self.id_to_fn = {}
         self.make_id_to_fn()
@@ -38,41 +51,41 @@ class SpotifySlackBot():
         data = {"id": data[0], "name": data[1], "artist": data[2]}
         message = "Now playing *%s* by *%s*." % (data['name'], data['artist'])
         
-        self.sc.rtm_send_message(event['channel'], message)
+        self.slack.rtm_send_message(event['channel'], message)
         
 
     def command_playback_play(self, event):
         self.run_spotify_script('playback-play')
-        self.sc.rtm_send_message(self.broadcast_channel, "*Resumed playback*, as requested by %s." % (self.get_username(event['user'])))
-        self.sc.rtm_send_message(event['channel'], "Sure, let the music play!")
+        self.slack.rtm_send_message(self.broadcast_channel, "*Resumed playback*, as requested by %s." % (self.get_username(event['user'])))
+        self.slack.rtm_send_message(event['channel'], "Sure, let the music play!")
 
 
     def command_playback_pause(self, event):
         self.run_spotify_script('playback-pause')
-        self.sc.rtm_send_message(self.broadcast_channel, "*Paused playback*, as requested by %s." % (self.get_username(event['user'])))
-        self.sc.rtm_send_message(event['channel'], "Alright, let's have some silence for now.")
+        self.slack.rtm_send_message(self.broadcast_channel, "*Paused playback*, as requested by %s." % (self.get_username(event['user'])))
+        self.slack.rtm_send_message(event['channel'], "Alright, let's have some silence for now.")
 
 
     def command_playback_skip(self, event):
         # don't allow bots to vote
         if 'subtype' in event:
             if event['subtype'] == 'slackbot_response':
-                self.sc.rtm_send_message(self.broadcast_channel, "Bots can't vote! :robot_face: :no_entry_sign:")
+                self.slack.rtm_send_message(self.broadcast_channel, "Bots can't vote! :robot_face: :no_entry_sign:")
 
         if event['user'] not in self.skips:
             self.skips.add(event['user'])
             if len(self.skips) >= self.skips_needed:
                 self.run_spotify_script('playback-skip')
-                self.sc.rtm_send_message(self.broadcast_channel, "*Skipping this song*")
+                self.slack.rtm_send_message(self.broadcast_channel, "*Skipping this song*")
                 self.skips = set()
             else:
-                self.sc.rtm_send_message(self.broadcast_channel, '%s out of %s votes needed to skip' % (len(self.skips), self.skips_needed))
+                self.slack.rtm_send_message(self.broadcast_channel, '%s out of %s votes needed to skip' % (len(self.skips), self.skips_needed))
         else:
-            self.sc.rtm_send_message(self.broadcast_channel, 'You already voted *%s*! :rage:' % self.id_to_fn[event['user']])
+            self.slack.rtm_send_message(self.broadcast_channel, 'You already voted *%s*! :rage:' % self.id_to_fn[event['user']])
 
 
     def command_help(self, event):
-        self.sc.rtm_send_message(event['channel'],
+        self.slack.rtm_send_message(event['channel'],
                                  # "Hey, how are you?  I'm here to help you using our office playlist.\n"
                                  # "I can give you some information about what is playing right now. Just send the command:\n"
                                  "- `song`: I'll tell you which song is playing and who the artist is.\n"
@@ -87,7 +100,7 @@ class SpotifySlackBot():
 
 
     def command_unknown(self, event):
-        self.sc.rtm_send_message(event['channel'], "I didn't understand you there. If you need, just say `help` and I can tell you how I can be of use")
+        self.slack.rtm_send_message(event['channel'], "I didn't understand you there. If you need, just say `help` and I can tell you how I can be of use")
 
 
     def run_spotify_script(self, *args):
@@ -127,8 +140,8 @@ class SpotifySlackBot():
         ]
 
         curr_song = ''
-        if self.sc.rtm_connect():
-            self.sc.rtm_send_message(self.broadcast_channel, '*Botify is now online!*')
+        if self.slack.rtm_connect():
+            self.slack.rtm_send_message(self.broadcast_channel, '*Botify is now online!*')
             # main loop
             while True:
                 # might want to move prev_song + curr_song to instance variables?
@@ -138,7 +151,7 @@ class SpotifySlackBot():
                 # if so, reset
                 if prev_song != curr_song:
                     self.new_song()
-                events = self.sc.rtm_read()
+                events = self.slack.rtm_read()
                 for event in events:
                     # only respond to mentions
                     if event.get('type') == 'message' and event['text'].split()[0] == '<@U81BD5UCD>':
