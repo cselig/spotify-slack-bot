@@ -22,7 +22,7 @@ class SpotifySlackBot():
         # should reset every time a new song plays
         self.skips = set()  
         self.skips_needed = skips_needed
-        self.banned = ['USLACKBOT']
+        self.banned = []
 
 
     # create a dict to map user id to first name
@@ -136,6 +136,12 @@ class SpotifySlackBot():
             self.sc.rtm_send_message(self.broadcast_channel, '*Botify is now online!*')
             # main loop
             while True:
+                print self.banned
+                # rebuild banned users list: definitely want to do this a better way
+                self.banned = []
+                with open('local/banned_users.txt', 'r') as f:
+                    for l in f:
+                        self.banned.append(str(l).strip())
                 # might want to move prev_song + curr_song to instance variables?
                 prev_song = curr_song
                 curr_song = self.get_curr_song_info()['id']
