@@ -22,6 +22,7 @@ class SpotifySlackBot():
         # should reset every time a new song plays
         self.skips = set()  
         self.skips_needed = skips_needed
+        self.banned = ['USLACKBOT']
 
 
     # create a dict to map user id to first name
@@ -30,6 +31,7 @@ class SpotifySlackBot():
             id_ = user['id']
             name = user['profile']['real_name_normalized'].split()[0]
             self.id_to_fn[id_] = name
+        self.id_to_fn['USLACKBOT'] = 'SlackBot'
 
 
     def command_current_song(self, event):
@@ -59,16 +61,19 @@ class SpotifySlackBot():
             if event['subtype'] == 'slackbot_response':
                 self.sc.rtm_send_message(self.broadcast_channel, "Bots can't vote! :robot_face: :no_entry_sign:")
 
-        if event['user'] not in self.skips:
-            self.skips.add(event['user'])
-            if len(self.skips) >= self.skips_needed:
-                self.run_spotify_script('playback-skip')
-                self.sc.rtm_send_message(self.broadcast_channel, "*Skipping this song*")
-                self.skips = set()
+        if event['user'] not in self.banned:
+            if event['user'] not in self.skips:
+                self.skips.add(event['user'])
+                if len(self.skips) >= self.skips_needed:
+                    self.run_spotify_script('playback-skip')
+                    self.sc.rtm_send_message(self.broadcast_channel, "*Skipping this song*")
+                    self.skips = set()
+                else:
+                    self.sc.rtm_send_message(self.broadcast_channel, '%s out of %s votes needed to skip' % (len(self.skips), self.skips_needed))
             else:
-                self.sc.rtm_send_message(self.broadcast_channel, '%s out of %s votes needed to skip' % (len(self.skips), self.skips_needed))
+                self.sc.rtm_send_message(self.broadcast_channel, 'You already voted *%s*! :rage:' % self.id_to_fn[event['user']])
         else:
-            self.sc.rtm_send_message(self.broadcast_channel, 'You already voted *%s*! :rage:' % self.id_to_fn[event['user']])
+            self.sc.rtm_send_message(self.broadcast_channel, "Sorry %s, you've been banned from skipping! :cry:" % self.id_to_fn[event['user']])
 
 
     def command_help(self, event):
