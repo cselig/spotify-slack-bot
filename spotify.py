@@ -4,7 +4,7 @@ import os
 import re
 import time
 import json
-
+from pprint import pprint
 
 class SpotifySlackBot():
     
@@ -73,7 +73,7 @@ class SpotifySlackBot():
             else:
                 self.sc.rtm_send_message(self.broadcast_channel, 'You already voted *%s*! :rage:' % self.id_to_fn[event['user']])
         else:
-            self.sc.rtm_send_message(self.broadcast_channel, "Sorry %s, you've been banned from skipping! :cry:" % self.id_to_fn[event['user']])
+            self.sc.rtm_send_message(self.broadcast_channel, "Sorry *%s*, you've been banned from skipping! :cry:" % self.id_to_fn[event['user']])
 
 
     def command_help(self, event):
@@ -151,14 +151,15 @@ class SpotifySlackBot():
                 events = self.sc.rtm_read()
                 for event in events:
                     # only respond to mentions
-                    if event.get('type') == 'message' and event['text'].split()[0] == '<@U81BD5UCD>':
-                        for (expression, function) in commands:
-                            try:
-                                if re.match(expression, event['text'].split()[1]):
-                                    function(event)
-                                    break
-                            except:
-                                pass
+                    if event.get('type') == 'message' and len(event['text'].split()) > 0:
+                        if event['text'].split()[0] == '<@U81BD5UCD>':
+                            for (expression, function) in commands:
+                                try:
+                                    if re.match(expression, event['text'].split()[1]):
+                                        function(event)
+                                        break
+                                except:
+                                    pass
                 time.sleep(1)
 
 
